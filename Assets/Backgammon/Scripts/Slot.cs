@@ -66,15 +66,5 @@ namespace Backgammon.Core
                         pawnsContainer.GetChild(i).transform.localPosition = new Vector3(0, -0.5f + i * yOffset, 0);
             }
         }
-
-        public void RemoveTopPawn()
-        {
-            if (pawns.Count > 0)
-            {
-                Pawn pawn = pawns[pawns.Count - 1]; // Get the topmost pawn
-                pawns.RemoveAt(pawns.Count - 1);    // Remove from list
-                Destroy(pawn.gameObject);           // Destroy from scene
-            }
-        }
     }
 }

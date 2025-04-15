@@ -562,12 +562,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   timeDisplay: {fileID: 731887328}
-  timeLapse:
-  - 0
-  - 0
   submitBtns:
   - {fileID: 719335733}
   - {fileID: 514572754}
+  timeLapse:
+  - 0
+  - 0
   acceptance: 0
 --- !u!4 &114417029
 Transform:
@@ -596,9 +596,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 69a7532125c2c9c4fbe160b6180d8042, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  playerTypes: 0200000001000000
   newGameButton: {fileID: 920060461}
-  diceButton: {fileID: 451497672}
   gameOverPanel: {fileID: 1405160380}
+  diceButton: {fileID: 451497672}
   turnImages:
   - {fileID: 1072847947}
   - {fileID: 257620976}
@@ -606,10 +607,6 @@ MonoBehaviour:
   - {fileID: 567757237}
   - {fileID: 1021208168}
   sidesAgreed: 0
-  whiteIsBot: 1
-  redIsBot: 1
-  whiteBotType: 0
-  redBotType: 1
 --- !u!1 &135892640
 GameObject:
   m_ObjectHideFlags: 0

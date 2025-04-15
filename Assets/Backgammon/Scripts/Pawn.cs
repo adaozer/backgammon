@@ -4,30 +4,27 @@ using Broniek.Stuff.Sounds;
 
 namespace Backgammon.Core
 {
-    // Implementation of dragging the pieces.
-
     public class Pawn : MonoBehaviour
     {
         public static event Action<int> OnCompleteTurn = delegate { };
         public static event Action<bool> OnGameOver = delegate { };
 
-        public static int[] imprisonedSide = new int[2];        // Is the mode of taking the pieces of given side out of prison?
-        public static bool[] shelterSide = new bool[2];         // Is the mode of introducing the pieces of given side into the shelter?
-
-        public static int endSlotNo;                            // sloty ostatniej ćwiartki najdalsze od schronienia
+        public static int[] imprisonedSide = new int[2];
+        public static bool[] shelterSide = new bool[2];
+        public static int endSlotNo;
         private static int moves;
 
-        public int pawnColor;                                   // The color of this pawn.
-        public int slotNo;                                      // slot to which this pawn is currently assigned
-        public int pawnNo;                                      // the position taken by a pawn in a slot
+        public int pawnColor;
+        public int slotNo;
+        public int pawnNo;
 
-        private Slot slot;                                      // the slot over which the piece being drawn is currently located
+        public Slot slot;
         private Vector3 startPos;
         private GameObject go;
-        private bool isDown;                                    // Is the mouse button pressed?
-        private bool imprisoned;                                // a given pawn is in prison
-        private bool shelter;                                   // whether the piece is above the shelter area
-        private int rescuedPawns;                               // the number of pieces of a given color in the shelter
+        private bool isDown;
+        public bool imprisoned; // made public for bot logic
+        private bool shelter;
+        private int rescuedPawns;
         private int maxMoves;
 
         public void SetColor(int color)
@@ -36,12 +33,9 @@ namespace Backgammon.Core
             pawnColor = color;
         }
 
-        //-------- events that carry out dragging a piece
-
         private void OnTriggerStay2D(Collider2D other)
         {
-            if (other.CompareTag("Slot"))
-                slot = other.GetComponent<Slot>();
+            if (other.CompareTag("Slot")) slot = other.GetComponent<Slot>();
             else if (other.CompareTag("Shelter"))
                 if (shelterSide[0] || shelterSide[1])
                     shelter = true;
@@ -49,10 +43,8 @@ namespace Backgammon.Core
 
         private void OnTriggerExit2D(Collider2D other)
         {
-            if (other.CompareTag("Slot"))
-                slot = Slot.slots[slotNo];         // when we are not in the area of ​​any of the slots (in the context of OnTriggerStay2D)
-            else if (other.CompareTag("Shelter"))
-                shelter = false;
+            if (other.CompareTag("Slot")) slot = Slot.slots[slotNo];
+            else if (other.CompareTag("Shelter")) shelter = false;
         }
 
         private void OnMouseDown()
@@ -60,7 +52,7 @@ namespace Backgammon.Core
             if (!Board.GameOver)
             {
                 if (!imprisoned && ((imprisonedSide[0] > 0 && pawnColor == 0) || (imprisonedSide[1] > 0 && pawnColor == 1)))
-                    return;             // in a situation of imprisonment, do not allow unrestricted pieces to be dragged
+                    return;
 
                 TrySelectPawn();
             }
@@ -69,17 +61,17 @@ namespace Backgammon.Core
         private void TrySelectPawn()
         {
             if (GameController.dragEnable && GameController.turn == pawnColor)
-                if (Slot.slots[slotNo].Height() - 1 == pawnNo)  // only the highest pawn in the slot can be moved
+                if (Slot.slots[slotNo].Height() - 1 == pawnNo)
                 {
                     startPos = transform.position;
                     isDown = true;
-                    TryHighlight(true);     // we turn on the highlighting of the appropriate slots
+                    TryHighlight(true);
                 }
         }
 
         private void OnMouseDrag()
         {
-            if (isDown)                     // you need to convert the cursor positions to world positions
+            if (isDown)
             {
                 Vector3 mousePos = new Vector3(Input.mousePosition.x, Input.mousePosition.y);
                 Vector3 worldPos = Camera.main.ScreenToWorldPoint(mousePos);
@@ -91,16 +83,13 @@ namespace Backgammon.Core
         {
             if (isDown)
             {
-                TryHighlight(false);        // we turn off the highlighting of the appropriate slots
+                TryHighlight(false);
                 isDown = false;
 
-                if (IsPatology())
-                    return;                 // impossible moves (against the rules of the game)
-                                            //------------ a mechanism that guarantees the correct movement of the pieces
+                if (IsPatology()) return;
                 CheckShelterStage();
 
-                if (TryPlace())            // prison mode support
-                    CheckShelterAndMore();
+                if (TryPlace()) CheckShelterAndMore();
 
                 CheckIfNextTurn();
             }
@@ -108,7 +97,7 @@ namespace Backgammon.Core
 
         private void CheckIfNextTurn()
         {
-            if (moves == maxMoves && !Board.GameOver)           // all moves have been made
+            if (moves == maxMoves && !Board.GameOver)
             {
                 moves = 0;
                 OnCompleteTurn(pawnColor);
@@ -126,15 +115,14 @@ namespace Backgammon.Core
 
         private void CheckShelterAndMore()
         {
-            if (slotNo != 0) TryRemovePawnFromJail();
-            if (slotNo != 25) TryRemovePawnFromJail();
+            if (slotNo != 0 && slotNo != 25) TryRemovePawnFromJail();
 
-            if (CheckShelterStage())                //---- detection of the mode of introducing the pieces into the shelter
+            if (CheckShelterStage())
                 shelterSide[pawnColor] = true;
 
-            if (++moves < maxMoves)      // after each move
+            if (++moves < maxMoves)
             {
-                if (!GameController.CanMove(1))        // when a move cannot be made
+                if (!GameController.CanMove(1))
                 {
                     moves = 0;
                     OnCompleteTurn(pawnColor);
@@ -144,13 +132,8 @@ namespace Backgammon.Core
 
         private bool IsPatology()
         {
-            if (slot.slotNo == 0 || slot.slotNo == 25)                  // prison slots
-            {
-                transform.position = startPos;
-                return true;
-            }
-
-            if (slot.Height() > 1 && slot.IsWhite() != pawnColor)     // there is more than one opponent's piece in a slot
+            if (slot.slotNo == 0 || slot.slotNo == 25 ||
+                (slot.Height() > 1 && slot.IsWhite() != pawnColor))
             {
                 transform.position = startPos;
                 return true;
@@ -161,18 +144,17 @@ namespace Backgammon.Core
 
         private bool TryPlace()
         {
-            if (shelter)                                // only when the piece being drawn is above the shelter area
+            if (shelter)
             {
-                if (shelterSide[pawnColor])  // we additionally take into account dragging a piece to the field symbolizing their home
-                    if (CanPlaceShelter())
-                        return true;
+                if (shelterSide[pawnColor] && CanPlaceShelter())
+                    return true;
 
                 transform.position = startPos;
                 return false;
             }
             else
             {
-                if (slot.slotNo == slotNo)              // same slot
+                if (slot.slotNo == slotNo)
                 {
                     transform.position = startPos;
                     return false;
@@ -180,11 +162,9 @@ namespace Backgammon.Core
 
                 int sign = pawnColor == 0 ? 1 : -1;
 
-                if (slot.slotNo == slotNo + sign * GameController.dices[0])   // that it matches the values ​​on the dice
-                    DoCorrectMove(0);
-                else if (slot.slotNo == slotNo + sign * GameController.dices[1])
-                    DoCorrectMove(1);
-                else                                    // does not agree with the values ​​thrown out
+                if (slot.slotNo == slotNo + sign * GameController.dices[0]) DoCorrectMove(0);
+                else if (slot.slotNo == slotNo + sign * GameController.dices[1]) DoCorrectMove(1);
+                else
                 {
                     transform.position = startPos;
                     return false;
@@ -194,37 +174,28 @@ namespace Backgammon.Core
             }
         }
 
-        private void TryHighlight(bool state)           // highlighting the appropriate slots
+        private void TryHighlight(bool state)
         {
             int sign = pawnColor == 0 ? 1 : -1;
-
             int slot0 = slotNo + sign * GameController.dices[0];
             int slot1 = slotNo + sign * GameController.dices[1];
 
             if (slot0 > 0 && slot0 < 25 && slot0 != slotNo)
-            {
-                if (!(Slot.slots[slot0].Height() > 1 && Slot.slots[slot0].IsWhite() != pawnColor))    // there is no more than one piece of a different color in a slot
-                {
+                if (!(Slot.slots[slot0].Height() > 1 && Slot.slots[slot0].IsWhite() != pawnColor))
                     Slot.slots[slot0].HightlightMe(state);
-                }
-            }
 
             if (slot1 > 0 && slot1 < 25 && slot1 != slotNo)
-            {
-                if (!(Slot.slots[slot1].Height() > 1 && Slot.slots[slot1].IsWhite() != pawnColor))    // there is no more than one piece of a different color in a slot
-                {
+                if (!(Slot.slots[slot1].Height() > 1 && Slot.slots[slot1].IsWhite() != pawnColor))
                     Slot.slots[slot1].HightlightMe(state);
-                }
-            }
         }
 
         private void DoCorrectMove(int diceNo)
         {
-            if (slot.Height() == 1 && slot.IsWhite() != pawnColor)   // a slot with one opponent's piece
+            if (slot.Height() == 1 && slot.IsWhite() != pawnColor)
                 PlaceJail();
 
-            Slot.slots[slotNo].GetTopPawn(true);                      // we remove the piece from the slot that has been occupied so far
-            slot.PlacePawn(this, pawnColor);                          // put a piece in the new slot
+            Slot.slots[slotNo].GetTopPawn(true);
+            slot.PlacePawn(this, pawnColor);
 
             if (!GameController.isDublet)
                 GameController.dices[diceNo] = 0;
@@ -232,25 +203,37 @@ namespace Backgammon.Core
             SoundManager.GetSoundEffect(1, 0.2f);
         }
 
-        private void PlaceJail()                   // placing a whipped piece in prison (suspension of introduction to the shelter)
+        public void PlaceJail()
         {
-            Pawn pawn = slot.GetTopPawn(true);                              // get a whipped piece
-            pawn.imprisoned = true;
+            if (slot == null)
+            {
+                Debug.LogError("Slot is null when trying to place pawn in jail.");
+                return;
+            }
 
-            Slot.slots[pawn.pawnColor == 0 ? 0 : 25].PlacePawn(pawn, pawn.pawnColor); // put the piece in the prison slot
-            imprisonedSide[pawn.pawnColor]++;
-            shelterSide[pawn.pawnColor] = false;                            // a piece in prison, therefore no entry into the shelter
+            Pawn pawn = slot.GetTopPawn(true);  // Safely pop from slot
+            if (pawn == null)
+            {
+                Debug.LogError("No pawn found in slot when trying to place in jail.");
+                return;
+            }
+
+            pawn.imprisoned = true;
+            int jailSlot = pawn.pawnColor == 0 ? 0 : 25;
+
+            Slot.slots[jailSlot].PlacePawn(pawn, pawn.pawnColor);  // Place into jail slot
+            Pawn.imprisonedSide[pawn.pawnColor]++;
+            Pawn.shelterSide[pawn.pawnColor] = false;
 
             SoundManager.GetSoundEffect(2, 0.8f);
         }
 
-        //-------- private methods related to shelter mode support
 
         private bool CanPlaceShelter()
         {
             int value = pawnColor == 0 ? 25 : 0;
 
-            if (slotNo == endSlotNo)                    // the white or red pawn from the farthest slot
+            if (slotNo == endSlotNo)
             {
                 if (CanPlaceShelter(0, value, true) || CanPlaceShelter(1, value, true))
                     return true;
@@ -276,9 +259,61 @@ namespace Backgammon.Core
 
             return result;
         }
-
-        private void PlaceInShelter()
+        public void PlaceInShelter()
         {
+            Debug.Log($"[PlaceInShelter] Attempting to bear off pawn color {pawnColor} from slot {slotNo}");
+
+            if (go == null)
+            {
+                go = GameObject.Find((pawnColor == 0 ? "White" : "Red") + " House");
+                Debug.Log($"[PlaceInShelter] go initialized: {(go != null ? "success" : "FAIL")}");
+            }
+
+            if (go == null)
+            {
+                Debug.LogError("[PlaceInShelter] House GameObject not found!");
+                return;
+            }
+
+            int visibleCount = 0;
+            for (int i = 0; i < go.transform.childCount; i++)
+            {
+                if (go.transform.GetChild(i).gameObject.activeSelf)
+                    visibleCount++;
+            }
+
+            Debug.Log($"[PlaceInShelter] visibleCount before = {visibleCount}");
+
+            if (visibleCount < go.transform.childCount)
+            {
+                go.transform.GetChild(visibleCount).gameObject.SetActive(true);
+                Debug.Log($"[PlaceInShelter] Activated pawn {visibleCount} in the house UI");
+            }
+
+            SoundManager.GetSoundEffect(0, 0.3f);
+
+            if (visibleCount + 1 == 15)
+            {
+                Debug.Log("[PlaceInShelter] Win condition reached! Triggering Game Over.");
+                OnGameOver(pawnColor == 0);
+                Board.GameOver = true;
+            }
+
+            Slot.slots[slotNo].GetTopPawn(true);
+            gameObject.SetActive(false);
+            Destroy(gameObject, 0.1f);
+        }
+
+
+
+
+
+
+        public void PlaceInShelterBot()
+        {
+            GameObject go = GameObject.Find((pawnColor == 0 ? "White" : "Red") + " House");
+            int rescuedPawns = go.GetComponentsInChildren<SpriteRenderer>().Length - 1;
+
             go.transform.GetChild(rescuedPawns++).gameObject.SetActive(true);
             SoundManager.GetSoundEffect(0, 0.3f);
 
@@ -288,14 +323,16 @@ namespace Backgammon.Core
                 Board.GameOver = true;
             }
 
-            Slot.slots[slotNo].GetTopPawn(true);            // remove from current slot
+            Slot.slots[slotNo].GetTopPawn(true);  // Remove from current slot
             gameObject.SetActive(false);
             Destroy(gameObject, 0.1f);
         }
 
-        private bool CheckShelterStage()                   // check if it is possible to bring a given player's pieces into the shelter
+
+
+        private bool CheckShelterStage()
         {
-            maxMoves = GameController.isDublet ? 4 : 2;    // four the same movements or two different movements
+            maxMoves = GameController.isDublet ? 4 : 2;
 
             go = GameObject.Find((pawnColor == 0 ? "White" : "Red") + " House");
             rescuedPawns = go.GetComponentsInChildren<SpriteRenderer>().Length - 1;
@@ -305,15 +342,16 @@ namespace Backgammon.Core
             int b = pawnColor == 0 ? -1 : 1;
 
             for (int i = 1 + offset; i <= 6 + offset; i++)
-                if (Slot.slots[7 * pawnColor - b * i].Height() > 0 && Slot.slots[7 * pawnColor - b * i].IsWhite() == pawnColor)
+            {
+                int index = 7 * pawnColor - b * i;
+                if (Slot.slots[index].Height() > 0 && Slot.slots[index].IsWhite() == pawnColor)
                 {
-                    if (count == 0)
-                        endSlotNo = 7 * pawnColor - b * i;
-
-                    count += Slot.slots[7 * pawnColor - b * i].Height();
+                    if (count == 0) endSlotNo = index;
+                    count += Slot.slots[index].Height();
                 }
+            }
 
-            return (count == 15 - rescuedPawns);   // if all the pieces of a given color, remaining on the board, are in the last quadrant
+            return (count == 15 - rescuedPawns);
         }
 
         public static void InitializePawn()
@@ -323,23 +361,9 @@ namespace Backgammon.Core
             imprisonedSide = new int[2];
             shelterSide = new bool[2];
         }
-        public static int CountRemainingCheckers(int playerColor)
+        public static void TriggerGameOver(bool isWhite)
         {
-            int count = 0;
-
-            // Count all pawns on the board (Slots 1 to 24)
-            for (int i = 1; i <= 24; i++)
-            {
-                if (Slot.slots[i].Height() > 0 && Slot.slots[i].IsWhite() == playerColor)
-                {
-                    count += Slot.slots[i].Height();
-                }
-            }
-
-            // Add imprisoned checkers (Jail slots: 0 for White, 25 for Red)
-            count += imprisonedSide[playerColor];
-
-            return count;
+            OnGameOver(isWhite);
         }
 
     }
