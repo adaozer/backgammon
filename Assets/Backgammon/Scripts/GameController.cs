@@ -196,6 +196,7 @@ private void ResetDice()
     isDublet = false;
 }
 
+
         private static bool CanMoveFree()
         {
             for (int i = 1; i <= 24; i++)
@@ -234,22 +235,22 @@ private void ResetDice()
         yield break;
     }
 
-    CheckBotShelterMode(); // Updates Pawn.shelterSide[turn]
+    CheckBotShelterMode();
 
     yield return new WaitForSeconds(0.5f);
-    Generate(); // roll dice
+    Generate(); // Roll dice
     yield return new WaitForSeconds(0.5f);
 
     int maxMoves = isDublet ? 4 : 2;
-    int moveCount = 0;
+    int movesMade = 0;
 
-    while (moveCount < maxMoves && (dices[0] > 0 || dices[1] > 0) && CanMove(2))
+    while (movesMade < maxMoves && (dices[0] > 0 || dices[1] > 0))
     {
         var legalMoves = GetAllLegalMoves();
 
         if (legalMoves.Count == 0)
         {
-            Debug.Log("[ExecuteBotTurn] No legal moves — ending turn.");
+            Debug.Log("[ExecuteBotTurn] No legal moves — ending turn early.");
             ResetDice();
             break;
         }
@@ -258,16 +259,25 @@ private void ResetDice()
             ? legalMoves[Random.Range(0, legalMoves.Count)]
             : legalMoves.OrderByDescending(m => Mathf.Abs(m.targetSlot - m.pawn.slotNo)).First();
 
-        Debug.Log($"[ExecuteBotTurn] Player {turn} moving from {move.pawn.slotNo} to {move.targetSlot} using dice[{move.diceIndex}] = {dices[move.diceIndex]}");
+        bool success = DoBotMove(move.pawn, move.targetSlot, move.diceIndex);
 
-        DoBotMove(move.pawn, move.targetSlot, move.diceIndex);
-
-        moveCount++;
-        yield return new WaitForSeconds(0.35f);
+        if (success)
+        {
+            movesMade++;
+            yield return new WaitForSeconds(0.35f);
+        }
+        else
+        {
+            // Safety catch to prevent infinite loop in case of a faulty move
+            Debug.LogWarning("[ExecuteBotTurn] Move failed, breaking out.");
+            ResetDice();
+            break;
+        }
     }
 
     Pawn_OnCompleteTurn(turn);
 }
+
 
 
 
@@ -465,58 +475,55 @@ private void ResetDice()
             return count;
         }
 
-        private void DoBotMove(Pawn pawn, int targetSlot, int diceIndex)
+       private bool DoBotMove(Pawn pawn, int targetSlot, int diceIndex)
+{
+    if (pawn == null || Slot.slots == null || pawn.slotNo < 0 || pawn.slotNo >= Slot.slots.Count)
+    {
+        Debug.LogError("[DoBotMove] Invalid pawn or slot state.");
+        return false;
+    }
+
+    var currentSlot = Slot.slots[pawn.slotNo];
+
+    // Bearing off
+    if (targetSlot == 0 || targetSlot == 25)
+    {
+        pawn.PlaceInShelter();
+        if (!isDublet) dices[diceIndex] = 0;
+        return true;
+    }
+
+    var target = Slot.slots[targetSlot];
+
+    // Check if move is blocked
+    if (target.Height() > 1 && target.IsWhite() != pawn.pawnColor)
+        return false;
+
+    // Capture
+    if (target.Height() == 1 && target.IsWhite() != pawn.pawnColor)
+    {
+        var captured = target.GetTopPawn(false);
+        if (captured != null)
         {
-            if (pawn == null || Slot.slots == null || pawn.slotNo < 0 || pawn.slotNo >= Slot.slots.Count)
-            {
-                Debug.LogError("[DoBotMove] Invalid pawn or slot state.");
-                return;
-            }
-
-            var currentSlot = Slot.slots[pawn.slotNo];
-
-            // Bearing off move
-            if (targetSlot == 0 || targetSlot == 25)
-            {
-                Debug.Log($"[DoBotMove] Player {turn} bearing off pawn from slot {pawn.slotNo}");
-                pawn.PlaceInShelter();
-                if (!isDublet) dices[diceIndex] = 0;
-                Debug.Log($"[DoBotMove] Dice used: index {diceIndex}, now [{dices[0]}, {dices[1]}]");
-
-                return;
-            }
-
-            var target = Slot.slots[targetSlot];
-
-            // Handle capture (1 enemy checker)
-            if (target.Height() == 1 && target.IsWhite() != pawn.pawnColor)
-            {
-                var captured = target.GetTopPawn(false);
-                if (captured != null)
-                {
-                    captured.slot = target;
-                    captured.PlaceJail();
-                }
-            }
-
-            // Remove pawn from current slot
-            currentSlot.GetTopPawn(true);
-
-            // Exiting jail
-            if (pawn.imprisoned)
-            {
-                pawn.imprisoned = false;
-                Pawn.imprisonedSide[pawn.pawnColor]--;
-            }
-
-            // Place on new slot
-            target.PlacePawn(pawn, pawn.pawnColor);
-
-            // Consume die
-            if (!isDublet) dices[diceIndex] = 0;
-
-            Debug.Log($"[DoBotMove] Player {turn} moved to slot {targetSlot}. Dice now: [{dices[0]}, {dices[1]}]");
+            captured.slot = target;
+            captured.PlaceJail();
         }
+    }
+
+    currentSlot.GetTopPawn(true); // remove from current
+
+    if (pawn.imprisoned)
+    {
+        pawn.imprisoned = false;
+        Pawn.imprisonedSide[pawn.pawnColor]--;
+    }
+
+    target.PlacePawn(pawn, pawn.pawnColor);
+    if (!isDublet) dices[diceIndex] = 0;
+
+    return true;
+}
+
 public bool BotTryMove(Pawn pawn, int targetSlot, int diceIndex)
 {
     if (pawn == null || Slot.slots == null || pawn.slotNo < 0 || pawn.slotNo >= Slot.slots.Count)
