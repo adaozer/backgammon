@@ -562,9 +562,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   timeDisplay: {fileID: 731887328}
-  submitBtns:
-  - {fileID: 719335733}
-  - {fileID: 514572754}
+  submitBtns: []
+  acceptPanel: {fileID: 486445726}
   timeLapse:
   - 0
   - 0
