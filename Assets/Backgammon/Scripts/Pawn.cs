@@ -259,75 +259,45 @@ namespace Backgammon.Core
 
             return result;
         }
-        public void PlaceInShelter()
-        {
-            Debug.Log($"[PlaceInShelter] Attempting to bear off pawn color {pawnColor} from slot {slotNo}");
+     public void PlaceInShelter()
+{
+    if (go == null)
+        go = GameObject.Find((pawnColor == 0 ? "White" : "Red") + " House");
 
-            if (go == null)
-            {
-                go = GameObject.Find((pawnColor == 0 ? "White" : "Red") + " House");
-                Debug.Log($"[PlaceInShelter] go initialized: {(go != null ? "success" : "FAIL")}");
-            }
+    if (go == null)
+    {
+        Debug.LogError("[PlaceInShelter] House GameObject not found!");
+        return;
+    }
 
-            if (go == null)
-            {
-                Debug.LogError("[PlaceInShelter] House GameObject not found!");
-                return;
-            }
+    int visibleCount = 0;
+    for (int i = 0; i < go.transform.childCount; i++)
+    {
+        if (go.transform.GetChild(i).gameObject.activeSelf)
+            visibleCount++;
+    }
 
-            int visibleCount = 0;
-            for (int i = 0; i < go.transform.childCount; i++)
-            {
-                if (go.transform.GetChild(i).gameObject.activeSelf)
-                    visibleCount++;
-            }
+    Debug.Log($"[PlaceInShelter] Player {pawnColor} bearing off. Current count = {visibleCount}");
 
-            Debug.Log($"[PlaceInShelter] visibleCount before = {visibleCount}");
+    if (visibleCount < go.transform.childCount)
+    {
+        go.transform.GetChild(visibleCount).gameObject.SetActive(true);
+    }
 
-            if (visibleCount < go.transform.childCount)
-            {
-                go.transform.GetChild(visibleCount).gameObject.SetActive(true);
-                Debug.Log($"[PlaceInShelter] Activated pawn {visibleCount} in the house UI");
-            }
+    SoundManager.GetSoundEffect(0, 0.3f);
 
-            SoundManager.GetSoundEffect(0, 0.3f);
+    if (visibleCount + 1 == 15)
+    {
+        Debug.Log($"[PlaceInShelter] Player {pawnColor} has borne off all 15 — triggering game over.");
+        OnGameOver(pawnColor == 0);
+        Board.GameOver = true;
+    }
 
-            if (visibleCount + 1 == 15)
-            {
-                Debug.Log($"[PlaceInShelter] Win condition reached for {(pawnColor == 0 ? "White" : "Red")}");
-                OnGameOver(pawnColor == 0);
-                Board.GameOver = true;
-            }
+    Slot.slots[slotNo].GetTopPawn(true);
+    gameObject.SetActive(false);
+    Destroy(gameObject, 0.1f);
+}
 
-
-            Slot.slots[slotNo].GetTopPawn(true);
-            gameObject.SetActive(false);
-            Destroy(gameObject, 0.1f);
-        }
-
-
-
-
-
-
-        public void PlaceInShelterBot()
-        {
-            GameObject go = GameObject.Find((pawnColor == 0 ? "White" : "Red") + " House");
-            int rescuedPawns = go.GetComponentsInChildren<SpriteRenderer>().Length - 1;
-
-            go.transform.GetChild(rescuedPawns++).gameObject.SetActive(true);
-            SoundManager.GetSoundEffect(0, 0.3f);
-
-            if (rescuedPawns == 15)
-            {
-                OnGameOver(pawnColor == 0);
-                Board.GameOver = true;
-            }
-
-            Slot.slots[slotNo].GetTopPawn(true);  // Remove from current slot
-            gameObject.SetActive(false);
-            Destroy(gameObject, 0.1f);
-        }
 
 
 
