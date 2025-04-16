@@ -294,10 +294,11 @@ namespace Backgammon.Core
 
             if (visibleCount + 1 == 15)
             {
-                Debug.Log("[PlaceInShelter] Win condition reached! Triggering Game Over.");
+                Debug.Log($"[PlaceInShelter] Win condition reached for {(pawnColor == 0 ? "White" : "Red")}");
                 OnGameOver(pawnColor == 0);
                 Board.GameOver = true;
             }
+
 
             Slot.slots[slotNo].GetTopPawn(true);
             gameObject.SetActive(false);

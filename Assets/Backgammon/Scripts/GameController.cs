@@ -52,10 +52,14 @@ namespace Backgammon.Core
             turn = 0;
             turnImages[0].gameObject.SetActive(turn == 0);
             turnImages[1].gameObject.SetActive(turn == 1);
+        }
 
+        private void Start()
+        {
             if (playerTypes[turn] != PlayerType.Human)
                 StartCoroutine(ExecuteBotTurn());
         }
+
 
         private void OnDestroy()
         {
@@ -194,22 +198,38 @@ namespace Backgammon.Core
 
         private IEnumerator ExecuteBotTurn()
         {
+            if (Slot.slots == null || Slot.slots.Count < 26)
+            {
+                Debug.LogWarning("[ExecuteBotTurn] Slot list not ready — skipping bot turn.");
+                yield break;
+            }
+
+            CheckBotShelterMode(); // Updates shelterSide
+
             yield return new WaitForSeconds(0.5f);
-            Generate(); // roll dice
+            Generate(); // Roll dice
             yield return new WaitForSeconds(0.5f);
 
             int maxMoves = isDublet ? 4 : 2;
+
             int moveCount = 0;
 
             while (moveCount < maxMoves && (dices[0] > 0 || dices[1] > 0) && CanMove(2))
             {
                 var legalMoves = GetAllLegalMoves();
-                if (legalMoves.Count == 0)
-                    break;
 
+                if (legalMoves.Count == 0)
+                {
+                    Debug.Log("[ExecuteBotTurn] No legal moves found.");
+                    break;
+                }
+
+                // Choose best move depending on bot type
                 var move = (playerTypes[turn] == PlayerType.RandomBot)
                     ? legalMoves[Random.Range(0, legalMoves.Count)]
                     : legalMoves.OrderByDescending(m => Mathf.Abs(m.targetSlot - m.pawn.slotNo)).First();
+
+                Debug.Log($"[ExecuteBotTurn] Player {turn} moving from {move.pawn.slotNo} to {move.targetSlot} using dice[{move.diceIndex}] = {dices[move.diceIndex]}");
 
                 DoBotMove(move.pawn, move.targetSlot, move.diceIndex);
 
@@ -219,6 +239,38 @@ namespace Backgammon.Core
 
             Pawn_OnCompleteTurn(turn);
         }
+
+
+
+        private void CheckBotShelterMode()
+        {
+            int count = 0;
+
+            if (turn == 0)
+            {
+                for (int i = 19; i <= 24; i++)
+                {
+                    if (Slot.slots[i].Height() > 0 && Slot.slots[i].IsWhite() == 0)
+                        count += Slot.slots[i].Height();
+                }
+            }
+            else
+            {
+                for (int i = 1; i <= 6; i++)
+                {
+                    if (Slot.slots[i].Height() > 0 && Slot.slots[i].IsWhite() == 1)
+                        count += Slot.slots[i].Height();
+                }
+            }
+
+            if (count + GetBearedOffCount(turn) == 15)
+            {
+                Debug.Log($"[ShelterMode] Player {turn} is now in bearing-off mode");
+                Pawn.shelterSide[turn] = true;
+            }
+        }
+
+
 
 
         private IEnumerator BotMoveRandom()
@@ -243,17 +295,18 @@ namespace Backgammon.Core
 
         private List<(Pawn pawn, int targetSlot, int diceIndex)> GetAllLegalMoves()
         {
-            // Priority: if there's a pawn in jail, only generate jail moves
-            if (Pawn.imprisonedSide[turn] > 0)
-                return GetJailMoves();
-
             List<(Pawn, int, int)> legalMoves = new();
             int direction = (turn == 0) ? 1 : -1;
             int bearingOffSlot = (turn == 0) ? 0 : 25;
             bool inBearingOff = Pawn.shelterSide[turn];
 
-            foreach (var slot in Slot.slots)
+            if (Pawn.imprisonedSide[turn] > 0)
+                return GetJailMoves();
+
+
+            for (int i = 1; i <= 24; i++)
             {
+                var slot = Slot.slots[i];
                 if (slot == null || slot.Height() == 0 || slot.IsWhite() != turn)
                     continue;
 
@@ -263,50 +316,48 @@ namespace Backgammon.Core
 
                 for (int diceIndex = 0; diceIndex < 2; diceIndex++)
                 {
-                    int diceValue = GameController.dices[diceIndex];
+                    int diceValue = dices[diceIndex];
                     if (diceValue == 0) continue;
 
-                    // ---------------- BEARING OFF -----------------
                     if (inBearingOff)
                     {
-                        int relativeDistance = turn == 0 ? 25 - topPawn.slotNo : topPawn.slotNo;
+                        int distanceFromGoal = (turn == 0) ? 25 - topPawn.slotNo : topPawn.slotNo;
 
-                        // Exact dice match
-                        if (diceValue == relativeDistance)
+                        // Exact match
+                        if (diceValue == distanceFromGoal)
                         {
                             legalMoves.Add((topPawn, bearingOffSlot, diceIndex));
                             continue;
                         }
 
-                        // Overshoot rule: can use higher die if no checkers behind
-                        if (diceValue > relativeDistance)
+                        // Overshoot allowed if no checker behind
+                        if (diceValue > distanceFromGoal)
                         {
-                            bool hasCheckersFurther = false;
-
+                            bool checkerBehind = false;
                             if (turn == 0)
                             {
-                                for (int i = topPawn.slotNo + 1; i <= 24; i++)
+                                for (int j = topPawn.slotNo + 1; j <= 24; j++)
                                 {
-                                    if (Slot.slots[i].Height() > 0 && Slot.slots[i].IsWhite() == 0)
+                                    if (Slot.slots[j].Height() > 0 && Slot.slots[j].IsWhite() == 0)
                                     {
-                                        hasCheckersFurther = true;
+                                        checkerBehind = true;
                                         break;
                                     }
                                 }
                             }
                             else
                             {
-                                for (int i = topPawn.slotNo - 1; i >= 1; i--)
+                                for (int j = topPawn.slotNo - 1; j >= 1; j--)
                                 {
-                                    if (Slot.slots[i].Height() > 0 && Slot.slots[i].IsWhite() == 1)
+                                    if (Slot.slots[j].Height() > 0 && Slot.slots[j].IsWhite() == 1)
                                     {
-                                        hasCheckersFurther = true;
+                                        checkerBehind = true;
                                         break;
                                     }
                                 }
                             }
 
-                            if (!hasCheckersFurther)
+                            if (!checkerBehind)
                             {
                                 legalMoves.Add((topPawn, bearingOffSlot, diceIndex));
                                 continue;
@@ -314,7 +365,7 @@ namespace Backgammon.Core
                         }
                     }
 
-                    // ---------------- NORMAL MOVE -----------------
+                    // Standard move
                     int target = topPawn.slotNo + direction * diceValue;
                     if (target < 1 || target > 24) continue;
 
@@ -332,6 +383,7 @@ namespace Backgammon.Core
 
 
 
+
         private List<(Pawn pawn, int targetSlot, int diceIndex)> GetJailMoves()
         {
             List<(Pawn, int, int)> jailMoves = new();
@@ -340,7 +392,11 @@ namespace Backgammon.Core
             int entry = (turn == 0) ? 1 : 24;
 
             var pawn = Slot.slots[jailSlot].GetTopPawn(false);
-            if (pawn == null) return jailMoves;
+            if (pawn == null)
+            {
+                Debug.LogWarning($"[JailMove] No pawn found in jail slot {jailSlot}");
+                return jailMoves;
+            }
 
             for (int i = 0; i < 2; i++)
             {
@@ -352,30 +408,55 @@ namespace Backgammon.Core
 
                 var slot = Slot.slots[target];
                 if (slot.Height() <= 1 || slot.IsWhite() == turn)
+                {
                     jailMoves.Add((pawn, target, i));
+                    Debug.Log($"[JailMove] Legal jail move: dice {dice}, jail -> {target}");
+                }
             }
 
             return jailMoves;
         }
 
 
+        private int GetBearedOffCount(int color)
+        {
+            string houseName = (color == 0) ? "White House" : "Red House";
+            GameObject house = GameObject.Find(houseName);
+            if (house == null) return 0;
+
+            int count = 0;
+            for (int i = 0; i < house.transform.childCount; i++)
+            {
+                if (house.transform.GetChild(i).gameObject.activeSelf)
+                    count++;
+            }
+            return count;
+        }
+
         private void DoBotMove(Pawn pawn, int targetSlot, int diceIndex)
         {
-            var currentSlot = Slot.slots[pawn.slotNo];
-
-            if (targetSlot == 0 || targetSlot == 25)
+            if (pawn == null || Slot.slots == null || pawn.slotNo < 0 || pawn.slotNo >= Slot.slots.Count)
             {
-                Debug.Log($"[DoBotMove] Bearing off pawn from slot {pawn.slotNo}");
-                pawn.PlaceInShelter();
-                dices[diceIndex] = isDublet ? dices[diceIndex] : 0;
+                Debug.LogError("[DoBotMove] Invalid pawn or slot state.");
                 return;
             }
 
+            var currentSlot = Slot.slots[pawn.slotNo];
 
+            // Bearing off move
+            if (targetSlot == 0 || targetSlot == 25)
+            {
+                Debug.Log($"[DoBotMove] Player {turn} bearing off pawn from slot {pawn.slotNo}");
+                pawn.PlaceInShelter();
+                if (!isDublet) dices[diceIndex] = 0;
+                Debug.Log($"[DoBotMove] Dice used: index {diceIndex}, now [{dices[0]}, {dices[1]}]");
+
+                return;
+            }
 
             var target = Slot.slots[targetSlot];
 
-            // Handle capture (target has exactly 1 opponent checker)
+            // Handle capture (1 enemy checker)
             if (target.Height() == 1 && target.IsWhite() != pawn.pawnColor)
             {
                 var captured = target.GetTopPawn(false);
@@ -384,28 +465,28 @@ namespace Backgammon.Core
                     captured.slot = target;
                     captured.PlaceJail();
                 }
-                else
-                {
-                    Debug.LogError("Tried to capture but target.GetTopPawn(false) returned null.");
-                }
             }
 
-            // Remove the bot's pawn from its current slot
+            // Remove pawn from current slot
             currentSlot.GetTopPawn(true);
 
-            // If it's exiting jail, mark it as free
+            // Exiting jail
             if (pawn.imprisoned)
             {
                 pawn.imprisoned = false;
                 Pawn.imprisonedSide[pawn.pawnColor]--;
             }
 
-            // Place on the target slot
+            // Place on new slot
             target.PlacePawn(pawn, pawn.pawnColor);
 
-            // Update dice usage
-            dices[diceIndex] = isDublet ? dices[diceIndex] : 0;
+            // Consume die
+            if (!isDublet) dices[diceIndex] = 0;
+
+            Debug.Log($"[DoBotMove] Player {turn} moved to slot {targetSlot}. Dice now: [{dices[0]}, {dices[1]}]");
         }
+
+
 
 
 
