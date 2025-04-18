@@ -8,40 +8,31 @@ public class BackgammonAgent : Agent
 {
     public int playerIndex; // 0 = white, 1 = red
 
-    public override void OnEpisodeBegin()
-    {
-        if (GameController.Instance != null)
-            GameController.Instance.NewGame();
-    }
-
     public override void CollectObservations(VectorSensor sensor)
     {
-        // Board slots: height + color
+        Debug.Log($"[Agent {playerIndex}] CollectObservations called");
+
         for (int i = 1; i <= 24; i++)
         {
             var slot = Slot.slots[i];
-            sensor.AddObservation(slot.Height());                   // slot height
-            sensor.AddObservation(slot.Height() > 0 ? slot.IsWhite() : -1); // color (-1 = empty)
+            sensor.AddObservation(slot.Height());
+            sensor.AddObservation(slot.Height() > 0 ? slot.IsWhite() : -1);
         }
 
-        // Dice values
         sensor.AddObservation(GameController.dices[0]);
         sensor.AddObservation(GameController.dices[1]);
-
-        // Whose turn
         sensor.AddObservation(GameController.turn == playerIndex ? 1f : 0f);
-
-        // Shelter state
         sensor.AddObservation(Pawn.shelterSide[playerIndex] ? 1f : 0f);
     }
 
     public override void OnActionReceived(ActionBuffers actions)
     {
+        Debug.Log($"[Agent {playerIndex}] Action received: fromSlot={actions.DiscreteActions[0]}, diceIndex={actions.DiscreteActions[1]}");
+
         int fromSlot = actions.DiscreteActions[0];
         int diceIndex = actions.DiscreteActions[1];
 
         if (GameController.turn != playerIndex || Board.GameOver) return;
-
         if (fromSlot < 1 || fromSlot > 24 || diceIndex > 1) return;
 
         var pawn = Slot.slots[fromSlot].GetTopPawn(false);
@@ -53,15 +44,21 @@ public class BackgammonAgent : Agent
 
         if (target >= 1 && target <= 24)
         {
-            GameController.Instance.BotTryMove(pawn, target, diceIndex);
-            AddReward(0.01f); // reward for a valid move
+            bool success = GameController.Instance.BotTryMove(pawn, target, diceIndex);
+            if (success)
+            {
+                AddReward(0.01f);
+            }
         }
+
+        // Let GameController continue the turn after this move
+        GameController.Instance.OnAgentMoveComplete();
     }
 
     public override void Heuristic(in ActionBuffers actionsOut)
     {
         var d = actionsOut.DiscreteActions;
-        d[0] = 1; // example: from slot 1
-        d[1] = 0; // dice index 0
+        d[0] = 1;
+        d[1] = 0;
     }
 }

@@ -200,7 +200,7 @@ namespace Backgammon.Core
             if (!GameController.isDublet)
                 GameController.dices[diceNo] = 0;
 
-            SoundManager.GetSoundEffect(1, 0.2f);
+            //SoundManager.GetSoundEffect(1, 0.2f);
         }
 
         public void PlaceJail()
@@ -225,7 +225,7 @@ namespace Backgammon.Core
             Pawn.imprisonedSide[pawn.pawnColor]++;
             Pawn.shelterSide[pawn.pawnColor] = false;
 
-            SoundManager.GetSoundEffect(2, 0.8f);
+            //SoundManager.GetSoundEffect(2, 0.8f);
         }
 
 
@@ -284,7 +284,7 @@ namespace Backgammon.Core
         go.transform.GetChild(visibleCount).gameObject.SetActive(true);
     }
 
-    SoundManager.GetSoundEffect(0, 0.3f);
+    //SoundManager.GetSoundEffect(0, 0.3f);
 
     if (visibleCount + 1 == 15)
     {

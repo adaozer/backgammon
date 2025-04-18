@@ -2,6 +2,7 @@
 #
 # Get latest from https://github.com/github/gitignore/blob/main/Unity.gitignore
 #
+.utmp/
 /[Ll]ibrary/
 /[Tt]emp/
 /[Oo]bj/
@@ -71,3 +72,42 @@ crashlytics-build.properties
 # Temporary auto-generated Android Assets
 /[Aa]ssets/[Ss]treamingAssets/aa.meta
 /[Aa]ssets/[Ss]treamingAssets/aa/*
+
+# === ML-AGENTS & TRAINING FILES ===
+
+# Ignore training outputs
+results/
+summaries/
+runs/
+checkpoints/
+models/
+
+# Ignore large or intermediate artifacts
+*.ckpt
+*.ckpt.meta
+*.tfevents.*
+*.log
+*.tmp
+
+# Ignore Python virtual environments
+mlagents-env/
+venv/
+env/
+env*/ 
+.mypy_cache/
+__pycache__/
+*.pyc
+*.conda
+
+# Ignore config/logs if temporary (optional)
+config/*.yaml
+
+# Ignore ML-Agents Unity package if not modifying
+Assets/ML-Agents/
+Assets/ML-Agents.meta
+
+# Jupyter auto-saves
+.ipynb_checkpoints/
+
+# Prevent Git from ignoring itself
+!.gitignore
