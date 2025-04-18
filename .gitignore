@@ -99,9 +99,6 @@ __pycache__/
 *.pyc
 *.conda
 
-# Ignore config/logs if temporary (optional)
-config/*.yaml
-
 # Ignore ML-Agents Unity package if not modifying
 Assets/ML-Agents/
 Assets/ML-Agents.meta
