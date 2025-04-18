@@ -1,6 +1,5 @@
 mlagents==0.28.0
 mlagents_envs==0.28.0
-torch==1.8.1+cpu
 numpy==1.21.6
 h5py==3.6.0
 protobuf==3.19.6
@@ -8,3 +7,5 @@ cattrs==1.5.0
 Pillow==8.4.0
 grpcio==1.39.0
 tensorboard==2.9.1
+
+pip install torch==1.8.1+cu111 -f https://download.pytorch.org/whl/torch_stable.html
