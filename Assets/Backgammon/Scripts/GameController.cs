@@ -232,16 +232,19 @@ namespace Backgammon.Core
             // ML-Agent override
             if (playerTypes[turn] == PlayerType.DeepLearningBot)
             {
+                yield return new WaitForSeconds(0.4f);
                 var agents = FindObjectsOfType<BackgammonAgent>();
                 foreach (var agent in agents)
                 {
                     if (agent.playerIndex == turn)
                     {
+                        agent.remainingMoves = isDublet ? 4 : 2;
                         agent.RequestDecision();
                         yield break;
                     }
                 }
             }
+
 
             int maxMoves = isDublet ? 4 : 2;
             int movesMade = 0;
@@ -284,6 +287,7 @@ namespace Backgammon.Core
 
         public void OnAgentMoveComplete()
         {
+            Debug.Log($"[GameController] OnAgentMoveComplete() called for player {turn}");
             Pawn_OnCompleteTurn(turn);
         }
 
@@ -535,6 +539,8 @@ namespace Backgammon.Core
 
         public bool BotTryMove(Pawn pawn, int targetSlot, int diceIndex)
         {
+            Debug.Log($"[BotTryMove] Trying to move pawn from {pawn.slotNo} to {targetSlot} using dice index {diceIndex}");
+
             if (pawn == null || Slot.slots == null || pawn.slotNo < 0 || pawn.slotNo >= Slot.slots.Count)
             {
                 Debug.LogError("[BotTryMove] Invalid pawn or slot state.");
@@ -547,7 +553,7 @@ namespace Backgammon.Core
             // Validate target
             if (target.Height() > 1 && target.IsWhite() != pawn.pawnColor)
             {
-                Debug.Log("[BotTryMove] Move blocked — too many opposing checkers.");
+                Debug.LogWarning($"[BotTryMove] Move blocked: too many opposing pawns at slot {targetSlot}");
                 return false;
             }
 
@@ -559,6 +565,8 @@ namespace Backgammon.Core
                 {
                     captured.slot = target;
                     captured.PlaceJail();
+                    Debug.Log($"[BotTryMove] Captured opponent pawn at slot {targetSlot}");
+
                 }
             }
 
@@ -569,6 +577,8 @@ namespace Backgammon.Core
             {
                 pawn.imprisoned = false;
                 Pawn.imprisonedSide[pawn.pawnColor]--;
+                Debug.Log($"[BotTryMove] Pawn was in jail. Now released.");
+
             }
 
             // Place on new slot
@@ -577,7 +587,7 @@ namespace Backgammon.Core
             // Consume die
             if (!isDublet) dices[diceIndex] = 0;
 
-            Debug.Log($"[BotTryMove] Player {turn} moved from {pawn.slotNo} to {targetSlot}. Dice now: [{dices[0]}, {dices[1]}]");
+            Debug.Log($"[BotTryMove] Move complete. Pawn now at slot {pawn.slotNo}. Dice: [{dices[0]}, {dices[1]}]");
 
             return true;
         }

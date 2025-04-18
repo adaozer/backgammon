@@ -25,6 +25,8 @@ namespace Backgammon.Core
             pawn.slotNo = slotNo;                                   // the slot that the pawn belongs to
             pawn.pawnNo = pawns.Count;                              // the position of the pawn in the slot
             pawns.Add(pawn);
+            Debug.Log($"[PlacePawn] Placed pawn of color {pawn.pawnColor} in slot {slotNo}");
+
         }
 
         public Pawn GetTopPawn(bool pop)
