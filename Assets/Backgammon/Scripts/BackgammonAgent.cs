@@ -6,7 +6,7 @@ using Backgammon.Core;
 
 public class BackgammonAgent : Agent
 {
-    public int playerIndex; // 0 = white, 1 = red
+    public int playerIndex;
     private int retryCount = 0;
     private const int maxRetries = 3;
     public int remainingMoves = 0;
@@ -173,29 +173,104 @@ public class BackgammonAgent : Agent
     {
         bool hasJail = Pawn.imprisonedSide[playerIndex] > 0;
         int jailSlot = playerIndex == 0 ? 0 : 25;
+        bool canMove = false;
 
         for (int i = 0; i <= 25; i++)
         {
             bool enable = false;
+
             if (hasJail)
-            {
                 enable = (i == jailSlot);
-            }
             else if (i >= 1 && i <= 24)
             {
                 var slot = Slot.slots[i];
                 enable = (slot.Height() > 0 && slot.IsWhite() == playerIndex);
             }
 
-            if (!enable)
-                actionMask.SetActionEnabled(0, i, false);
+            actionMask.SetActionEnabled(0, i, enable);
+            if (enable) canMove = true;
         }
 
         for (int i = 0; i < 2; i++)
         {
-            if (GameController.dices[i] == 0)
-                actionMask.SetActionEnabled(1, i, false);
+            int die = GameController.dices[i];
+            bool enable = die > 0 && CanUseDie(die);
+            actionMask.SetActionEnabled(1, i, enable);
         }
+
+        if (!canMove || (!CanUseDie(GameController.dices[0]) && !CanUseDie(GameController.dices[1])))
+        {
+            GameController.Instance.OnAgentMoveComplete();
+        }
+    }
+
+    private bool CanUseDie(int die)
+    {
+        int dir = (playerIndex == 0) ? 1 : -1;
+        bool inShelter = Pawn.shelterSide[playerIndex];
+
+        if (Pawn.imprisonedSide[playerIndex] > 0)
+        {
+            int entry = (playerIndex == 0) ? 1 : 24;
+            int target = entry + dir * (die - 1);
+
+            if (target >= 1 && target <= 24)
+            {
+                var slot = Slot.slots[target];
+                return (slot.Height() <= 1 || slot.IsWhite() == playerIndex);
+            }
+            return false;
+        }
+
+        for (int i = 1; i <= 24; i++)
+        {
+            var slot = Slot.slots[i];
+            if (slot.Height() == 0 || slot.IsWhite() != playerIndex) continue;
+            var pawn = slot.GetTopPawn(false);
+            if (pawn == null) continue;
+
+            int target = pawn.slotNo + dir * die;
+            if (target >= 1 && target <= 24)
+            {
+                var tSlot = Slot.slots[target];
+                if (tSlot.Height() <= 1 || tSlot.IsWhite() == playerIndex)
+                    return true;
+            }
+
+            if (inShelter)
+            {
+                int dist = (playerIndex == 0) ? 25 - pawn.slotNo : pawn.slotNo;
+                if (die == dist) return true;
+
+                if (die > dist)
+                {
+                    bool checkerBehind = false;
+                    if (playerIndex == 0)
+                    {
+                        for (int j = pawn.slotNo + 1; j <= 24; j++)
+                            if (Slot.slots[j].Height() > 0 && Slot.slots[j].IsWhite() == playerIndex)
+                            {
+                                checkerBehind = true;
+                                break;
+                            }
+                    }
+                    else
+                    {
+                        for (int j = pawn.slotNo - 1; j >= 1; j--)
+                            if (Slot.slots[j].Height() > 0 && Slot.slots[j].IsWhite() == playerIndex)
+                            {
+                                checkerBehind = true;
+                                break;
+                            }
+                    }
+
+                    if (!checkerBehind)
+                        return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     public override void Heuristic(in ActionBuffers actionsOut)

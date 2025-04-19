@@ -1,7 +1,7 @@
 behaviors:
   BackgammonPlayer:
     trainer_type: ppo
-    max_steps: 100000                 # Reduce total steps for testing
+    max_steps: 200000               # Reduce total steps for testing
     time_horizon: 64
     summary_freq: 10000               # Log more frequently
     hyperparameters:

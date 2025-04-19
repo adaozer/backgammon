@@ -22,6 +22,12 @@ namespace Backgammon.Core
         public static GameController Instance { get; set; }
         public PlayerType[] playerTypes = new PlayerType[2] { PlayerType.GreedyBot, PlayerType.GreedyBot };
 
+        private List<(int, int)> allDiceRolls = new();
+        private List<string> moveHistory = new();
+
+        private int gameCount = 0;
+        private int maxGames = 1000;
+
         [SerializeField] private Button newGameButton;
         [SerializeField] private GameObject gameOverPanel;
         [SerializeField] private Button diceButton;
@@ -92,6 +98,8 @@ namespace Backgammon.Core
 
             dices[0] = dice0;
             dices[1] = dice1;
+            allDiceRolls.Add((dice0, dice1));
+
 
             diceTexts[0].text = dices[0].ToString();
             diceTexts[1].text = dices[1].ToString();
@@ -142,6 +150,18 @@ namespace Backgammon.Core
             Debug.Log($"[GameController] Game over. Winner = {(isWhite ? "White" : "Red")}");
 
             // Optional auto-restart
+            int whiteMoves = GetBearedOffCount(0);
+            int redMoves = GetBearedOffCount(1);
+            string whiteType = playerTypes[0].ToString();
+            string redType = playerTypes[1].ToString();
+            string diceHistory = string.Join(";", allDiceRolls.Select(d => $"({d.Item1},{d.Item2})"));
+            string moveLog = string.Join(";", moveHistory);
+
+            Logger.LogGameResult(isWhite, whiteMoves, redMoves, whiteType, redType, diceHistory, moveLog);
+
+            allDiceRolls.Clear();
+            moveHistory.Clear();
+
             StartCoroutine(AutoRestart());
         }
 
@@ -151,7 +171,23 @@ namespace Backgammon.Core
             LoadGameScene();
         }
 
-        public void NewGame() => LoadGameScene();
+        public void NewGame()
+        {
+            gameCount++;
+            if (gameCount >= maxGames)
+            {
+                Debug.Log($"[GameController] Finished {gameCount} games. Stopping simulation.");
+                #if UNITY_EDITOR
+                        UnityEditor.EditorApplication.isPlaying = false;
+                #else
+                                Application.Quit();
+                #endif
+                return;
+            }
+
+            LoadGameScene();
+        }
+
 
         private void LoadGameScene()
         {
@@ -496,23 +532,31 @@ namespace Backgammon.Core
                 return false;
             }
 
-            var currentSlot = Slot.slots[pawn.slotNo];
+            int fromSlot = pawn.slotNo;
+            int usedDie = dices[diceIndex];
 
-            // Bearing off
-            if (targetSlot == 0 || targetSlot == 25)
+            if ((pawn.pawnColor == 0 && targetSlot == 0) || (pawn.pawnColor == 1 && targetSlot == 25))
             {
                 pawn.PlaceInShelter();
                 if (!isDublet) dices[diceIndex] = 0;
+
+                string player = pawn.pawnColor == 0 ? "White" : "Red";
+                moveHistory.Add($"{player}: {fromSlot} -> off (dice: {usedDie})");
                 return true;
             }
 
+            if (targetSlot == 0 || targetSlot == 25)
+            {
+                Debug.LogError($"[DoBotMove] Invalid move: bots cannot move to jail slot {targetSlot}");
+                return false;
+            }
+
+            var currentSlot = Slot.slots[pawn.slotNo];
             var target = Slot.slots[targetSlot];
 
-            // Check if move is blocked
             if (target.Height() > 1 && target.IsWhite() != pawn.pawnColor)
                 return false;
 
-            // Capture
             if (target.Height() == 1 && target.IsWhite() != pawn.pawnColor)
             {
                 var captured = target.GetTopPawn(false);
@@ -523,7 +567,7 @@ namespace Backgammon.Core
                 }
             }
 
-            currentSlot.GetTopPawn(true); // remove from current
+            currentSlot.GetTopPawn(true);
 
             if (pawn.imprisoned)
             {
@@ -534,8 +578,13 @@ namespace Backgammon.Core
             target.PlacePawn(pawn, pawn.pawnColor);
             if (!isDublet) dices[diceIndex] = 0;
 
+            string playerName = pawn.pawnColor == 0 ? "White" : "Red";
+            moveHistory.Add($"{playerName}: {fromSlot} -> {targetSlot} (dice: {usedDie})");
+
             return true;
         }
+
+
 
         public bool BotTryMove(Pawn pawn, int targetSlot, int diceIndex)
         {
@@ -547,17 +596,34 @@ namespace Backgammon.Core
                 return false;
             }
 
+            int fromSlot = pawn.slotNo;
+            int usedDie = dices[diceIndex];
+
+            if ((pawn.pawnColor == 0 && targetSlot == 0) || (pawn.pawnColor == 1 && targetSlot == 25))
+            {
+                pawn.PlaceInShelter();
+                if (!isDublet) dices[diceIndex] = 0;
+
+                string player = pawn.pawnColor == 0 ? "White" : "Red";
+                moveHistory.Add($"{player}: {fromSlot} -> off (dice: {usedDie})");
+                return true;
+            }
+
+            if (targetSlot == 0 || targetSlot == 25)
+            {
+                Debug.LogError($"[BotTryMove] Invalid move: cannot directly move to jail slot {targetSlot}");
+                return false;
+            }
+
             var currentSlot = Slot.slots[pawn.slotNo];
             var target = Slot.slots[targetSlot];
 
-            // Validate target
             if (target.Height() > 1 && target.IsWhite() != pawn.pawnColor)
             {
                 Debug.LogWarning($"[BotTryMove] Move blocked: too many opposing pawns at slot {targetSlot}");
                 return false;
             }
 
-            // Capture if needed
             if (target.Height() == 1 && target.IsWhite() != pawn.pawnColor)
             {
                 var captured = target.GetTopPawn(false);
@@ -566,11 +632,9 @@ namespace Backgammon.Core
                     captured.slot = target;
                     captured.PlaceJail();
                     Debug.Log($"[BotTryMove] Captured opponent pawn at slot {targetSlot}");
-
                 }
             }
 
-            // Remove pawn from current slot
             currentSlot.GetTopPawn(true);
 
             if (pawn.imprisoned)
@@ -578,19 +642,20 @@ namespace Backgammon.Core
                 pawn.imprisoned = false;
                 Pawn.imprisonedSide[pawn.pawnColor]--;
                 Debug.Log($"[BotTryMove] Pawn was in jail. Now released.");
-
             }
 
-            // Place on new slot
             target.PlacePawn(pawn, pawn.pawnColor);
-
-            // Consume die
             if (!isDublet) dices[diceIndex] = 0;
+
+            string playerName = pawn.pawnColor == 0 ? "White" : "Red";
+            moveHistory.Add($"{playerName}: {fromSlot} -> {targetSlot} (dice: {usedDie})");
 
             Debug.Log($"[BotTryMove] Move complete. Pawn now at slot {pawn.slotNo}. Dice: [{dices[0]}, {dices[1]}]");
 
             return true;
         }
+
+
 
 
 
