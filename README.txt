@@ -16,3 +16,5 @@ pip install torch==1.8.1+cu111 -f https://download.pytorch.org/whl/torch_stable.
 pip install -r requirements.txt
 mlagents-learn config/fast.yaml --run-id=BackgammonRun --env=Builds/Backgammon.exe --time-scale=50 --num-envs=4
 
+
+Start-Process -FilePath ".\Greedy_vs_Random.exe" -ArgumentList "-batchmode", "-nographics"

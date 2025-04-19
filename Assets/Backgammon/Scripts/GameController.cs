@@ -20,13 +20,14 @@ namespace Backgammon.Core
     public class GameController : MonoBehaviour
     {
         public static GameController Instance { get; set; }
-        public PlayerType[] playerTypes = new PlayerType[2] { PlayerType.GreedyBot, PlayerType.GreedyBot };
+        public PlayerType[] playerTypes = new PlayerType[2] { PlayerType.RandomBot, PlayerType.GreedyBot };
 
         private List<(int, int)> allDiceRolls = new();
         private List<string> moveHistory = new();
 
         private int gameCount = 0;
-        private int maxGames = 1000;
+        public int maxGames = 1000;
+
 
         [SerializeField] private Button newGameButton;
         [SerializeField] private GameObject gameOverPanel;
@@ -62,6 +63,9 @@ namespace Backgammon.Core
 
         private void Start()
         {
+
+            Time.timeScale = 50f;
+            Logger.Initialize("Greedy_vs_Random.csv");
             if (playerTypes[turn] != PlayerType.Human)
                 StartCoroutine(ExecuteBotTurn());
         }
@@ -157,7 +161,7 @@ namespace Backgammon.Core
             string diceHistory = string.Join(";", allDiceRolls.Select(d => $"({d.Item1},{d.Item2})"));
             string moveLog = string.Join(";", moveHistory);
 
-            Logger.LogGameResult(isWhite, whiteMoves, redMoves, whiteType, redType, diceHistory, moveLog);
+            Logger.LogWinnerOnly(isWhite);
 
             allDiceRolls.Clear();
             moveHistory.Clear();
@@ -170,23 +174,28 @@ namespace Backgammon.Core
             yield return new WaitForSeconds(5f);
             LoadGameScene();
         }
-
         public void NewGame()
         {
             gameCount++;
-            if (gameCount >= maxGames)
+
+            if (gameCount > maxGames)
             {
-                Debug.Log($"[GameController] Finished {gameCount} games. Stopping simulation.");
-                #if UNITY_EDITOR
-                        UnityEditor.EditorApplication.isPlaying = false;
-                #else
-                                Application.Quit();
-                #endif
+                Debug.Log($"[GameController] Finished {maxGames} games. Stopping.");
+
+                Logger.WriteSummaryRow();  // Add this here
+
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+                Application.Quit();
+#endif
                 return;
             }
 
-            LoadGameScene();
+            LoadGameScene(); // triggers pawn and board reset
         }
+
+
 
 
         private void LoadGameScene()

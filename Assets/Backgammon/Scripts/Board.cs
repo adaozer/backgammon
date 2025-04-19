@@ -59,12 +59,26 @@ namespace Backgammon.Core
 
         private void CreateSlot(int slotNo, Color color, Vector3 slotPos, Quaternion slotRot)
         {
+            if (slotPrefab == null)
+            {
+                Debug.LogError("[CreateSlot] slotPrefab is null! Assign it in the Inspector.");
+                return;
+            }
+
             Slot slot = Instantiate(slotPrefab, slotPos, slotRot, slotsContainer);
-            slot.name = "slot" + slotNo.ToString();
+            if (slot == null)
+            {
+                Debug.LogError("[CreateSlot] Instantiation failed — result was null.");
+                return;
+            }
+
+            slot.name = "slot" + slotNo;
             slot.slotNo = slotNo;
             slot.spriteRenderer.color = color;
+
             Slot.slots.Add(slot);
         }
+
 
         private void CreatePawns()
         {

@@ -595,7 +595,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 69a7532125c2c9c4fbe160b6180d8042, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  playerTypes: 0200000002000000
+  playerTypes: 0200000001000000
+  maxGames: 1000
   newGameButton: {fileID: 920060461}
   gameOverPanel: {fileID: 1405160380}
   diceButton: {fileID: 451497672}
@@ -5121,9 +5122,9 @@ MonoBehaviour:
     VectorActionDescriptions: []
     VectorActionSpaceType: 0
     hasUpgradedBrainParametersWithActionSpec: 1
-  m_Model: {fileID: 0}
+  m_Model: {fileID: 5022602860645237092, guid: 4f991369460da7945b126bbb98f0242d, type: 3}
   m_InferenceDevice: 0
-  m_BehaviorType: 0
+  m_BehaviorType: 2
   m_BehaviorName: BackgammonPlayer
   TeamId: 0
   m_UseChildSensors: 1
